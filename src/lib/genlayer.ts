@@ -1,7 +1,7 @@
 import { createClient, createAccount } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
-export const CONTRACT_ADDRESS = "0xAdC873cf8eb944768750AfF7cde005d13b088A51";
+export const CONTRACT_ADDRESS = "0x93D983DbC653542d9226807f9397e25DcDC975A8";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let client: any = null;
