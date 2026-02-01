@@ -8,7 +8,6 @@ export const CONTRACT_ADDRESS = "0xA9485ec8a442189F25D70399f12dF370b23408fb";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let client: any = null;
 
-// Initialize GenLayer client with private key authentication
 export const initializeGenLayer = async () => {
   if (client) return client;
 
@@ -32,66 +31,69 @@ export const initializeGenLayer = async () => {
   }
 };
 
-// Reset client (useful for re-initialization)
 export const resetClient = () => {
   client = null;
 };
 
-// Get active client
 export const getClient = () => client;
 
 /**
  * Wait for transaction to be ACCEPTED, with appeal fallback.
- * - Polls until ACCEPTED or FINALIZED
- * - If consensus fails, automatically appeals and waits again
+ * Improved polling logic to handle long GenLayer consensus times (10min+).
  */
 export const waitForAcceptedWithAppeal = async (txHash: `0x${string}`) => {
   const activeClient = await initializeGenLayer();
   if (!activeClient) throw new Error("Client not initialized");
 
   try {
+    console.log(`⏳ Waiting for consensus on: ${txHash}`);
+    // 120 retries * 10s = 20 minutes total wait window.
+    // Shorter intervals keep the connection "warm" and prevent RPC timeouts.
     const receipt = await activeClient.waitForTransactionReceipt({
       hash: txHash,
       status: TransactionStatus.ACCEPTED,
-      retries: 100,
-      interval: 5000,
+      retries: 120,
+      interval: 10000, 
     });
     return receipt;
   } catch (err) {
-    console.warn("⚠️ Transaction not ACCEPTED, attempting appeal...", err);
+    console.warn("⚠️ Primary wait period ended. Checking final status before appeal...", err);
 
-    // Appeal the transaction to request consensus again
-    const appealHash = await activeClient.appealTransaction({ txId: txHash });
+    // Manual check: Did it fail, or did we just timeout?
+    const currentTx = await activeClient.getTransactionReceipt({ hash: txHash });
 
-    const appealReceipt = await activeClient.waitForTransactionReceipt({
-      hash: appealHash,
-      status: TransactionStatus.ACCEPTED,
-      retries: 100,
-      interval: 5000,
-    });
+    // If it's still PENDING/PROPOSED after 20 mins, something is wrong with the node.
+    // If it's REJECTED or FINALIZED (but not accepted), we appeal.
+    if (currentTx.status === TransactionStatus.REJECTED) {
+      console.log("🔄 Transaction REJECTED. Attempting appeal...");
+      const appealHash = await activeClient.appealTransaction({ txId: txHash });
 
-    return appealReceipt;
+      return await activeClient.waitForTransactionReceipt({
+        hash: appealHash,
+        status: TransactionStatus.ACCEPTED,
+        retries: 60,
+        interval: 10000,
+      });
+    }
+
+    // If it's still processing, you might need to increase retries even further.
+    throw new Error(`Transaction state is ${currentTx.status}. Consensus is taking too long.`);
   }
 };
 
-// Parse contract-style date strings with fallback to custom parsing
-// Handles both 24-hour format (1/6/2026T13:30:00) and 12-hour format (1/6/2026T2:00 PM:00)
 export const parseContractDate = (raw: string): Date | null => {
   try {
-    // First, try native JavaScript Date parsing
     const nativeDate = new Date(raw);
     if (!isNaN(nativeDate.getTime())) {
       return nativeDate;
     }
 
-    // If native parsing fails, apply custom logic for contract format
     const [datePart, timePart] = raw.split("T");
     if (!datePart || !timePart) return null;
 
     const [month, day, year] = datePart.split("/");
     let hours: number, minutes: number;
 
-    // Handle AM/PM format
     if (timePart.includes("AM") || timePart.includes("PM")) {
       const match = timePart.match(/(\d+):(\d+)\s?(AM|PM)/i);
       if (!match) return null;
@@ -101,21 +103,18 @@ export const parseContractDate = (raw: string): Date | null => {
       if (meridian === "PM" && hours < 12) hours += 12;
       if (meridian === "AM" && hours === 12) hours = 0;
     } else {
-      // 24-hour format
       const [h, m] = timePart.split(":");
       hours = parseInt(h, 10);
       minutes = parseInt(m, 10);
     }
 
-    // Build Date object
-    const iso = new Date(
+    return new Date(
       Number(year),
       Number(month) - 1,
       Number(day),
       hours,
       minutes
     );
-    return iso;
   } catch {
     return null;
   }
