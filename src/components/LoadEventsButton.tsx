@@ -28,7 +28,7 @@ const LoadEventsButton = ({
         className="font-body uppercase tracking-wider text-xs md:text-sm px-6 py-3 border-primary/30 hover:border-primary hover:bg-primary/10 transition-all duration-300"
       >
         {isProcessing 
-          ? (syncing ? 'Syncing from blockchain...' : 'Loading...') 
+          ? (syncing ? 'Syncing Events...' : 'Loading...') 
           : 'Load Events'
         }
       </Button>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { initializeGenLayer, CONTRACT_ADDRESS } from '@/lib/genlayer';
+import { initializeGenLayer, CONTRACT_ADDRESS, parseContractDate } from '@/lib/genlayer';
 
 export interface GenLayerEvent {
   id: string;
@@ -52,11 +52,12 @@ const determineStatus = (dateStr: string, timeStr: string): GenLayerEvent['statu
   try {
     const now = new Date();
     const normalizedTime = normalizeTimeForParsing(timeStr);
-    const eventDate = new Date(`${(dateStr || '').trim()}T${normalizedTime}`);
+    const eventDateStr = `${(dateStr || '').trim()}T${normalizedTime}`;
+    const eventDate = parseContractDate(eventDateStr);
     
     // If event date is invalid, default to upcoming
-    if (isNaN(eventDate.getTime())) {
-      console.warn(`Invalid date: ${dateStr}T${normalizedTime}`);
+    if (!eventDate || isNaN(eventDate.getTime())) {
+      console.warn(`Invalid date: ${eventDateStr}`);
       return 'upcoming';
     }
     

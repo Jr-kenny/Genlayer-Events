@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventCard from './EventCard';
 import LoadEventsButton from './LoadEventsButton';
+import SyncEventsButton from './SyncEventsButton';
 import { useGenLayer } from '@/hooks/useGenLayer';
 
 interface TimelineProps {
@@ -17,7 +18,8 @@ const Timeline = ({ filter }: TimelineProps) => {
     error, 
     isInitialized, 
     lastSync, 
-    loadEvents, 
+    loadEvents,
+    syncEvents,
     hasEvents 
   } = useGenLayer();
 
@@ -122,10 +124,14 @@ const Timeline = ({ filter }: TimelineProps) => {
         </AnimatePresence>
 
         {/* Load Events Button - Always visible */}
-        <div className="flex justify-center mb-8 md:mb-12">
+        <div className="flex justify-center gap-3 mb-8 md:mb-12">
           <LoadEventsButton
             onLoad={loadEvents}
             loading={loading}
+            syncing={syncing}
+          />
+          <SyncEventsButton
+            onSync={syncEvents}
             syncing={syncing}
           />
         </div>
@@ -139,7 +145,7 @@ const Timeline = ({ filter }: TimelineProps) => {
           >
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p className="font-body text-muted-foreground">
-              AI validators reaching consensus...
+              Events are syncing...
             </p>
             <p className="font-body text-xs text-muted-foreground/70 mt-1">
               This may take a moment
